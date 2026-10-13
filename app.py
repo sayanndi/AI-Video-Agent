@@ -213,6 +213,11 @@ def save_upload(uploaded) -> str:
 def friendly_error(e: Exception) -> str:
     msg = str(e)
     low = msg.lower()
+    if "403" in msg or "forbidden" in low or "sign in to confirm" in low:
+        return (
+            "YouTube blocked the download from this server (cloud servers are usually blocked). "
+            "Use the 'Upload file' option instead, or run the app on your own PC for YouTube links."
+        )
     if "429" in msg or "rate limit" in low or "rate_limit" in low:
         return "Groq rate limit hit. Increase the pause in the sidebar (or wait a minute) and try again."
     if "401" in msg or "invalid api key" in low:
@@ -428,9 +433,17 @@ hero()
 if st.session_state.result is None:
     panel = st.empty()
     with panel.container(border=True):
-        mode = st.radio("Source", ["🔗 YouTube link", "📁 Upload file"], horizontal=True, label_visibility="collapsed")
+        on_cloud = Path("/mount/src").exists()  # True on Streamlit Community Cloud
+        options = ["📁 Upload file", "🔗 YouTube link"] if on_cloud else ["🔗 YouTube link", "📁 Upload file"]
+        mode = st.radio("Source", options, horizontal=True, label_visibility="collapsed")
         url, uploaded = "", None
         if mode.startswith("🔗"):
+            if on_cloud:
+                st.warning(
+                    "YouTube usually blocks downloads from cloud servers, so this may fail. "
+                    "Uploading an audio or video file is the reliable option here.",
+                    icon="⚠️",
+                )
             url = st.text_input("YouTube URL", placeholder="https://www.youtube.com/watch?v=…", label_visibility="collapsed")
         else:
             uploaded = st.file_uploader(
